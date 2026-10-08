@@ -7,8 +7,8 @@ resource "aws_ecr_repository" "frontend" {
   }
 
   tags = {
-    Name        = "${var.project_name}-frontend"
-    Project     = var.project_name
+    Name    = "${var.project_name}-frontend"
+    Project = var.project_name
   }
 }
 
@@ -21,7 +21,7 @@ resource "aws_ecr_repository" "backend" {
   }
 
   tags = {
-    Name        = "${var.project_name}-backend"
-    Project     = var.project_name
+    Name    = "${var.project_name}-backend"
+    Project = var.project_name
   }
 }
