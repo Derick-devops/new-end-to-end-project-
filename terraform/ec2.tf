@@ -81,6 +81,7 @@ resource "aws_security_group" "kubernetes" {
 resource "aws_instance" "control_plane" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.medium"
+  key_name      = var.ec2_key_name
 
   subnet_id = aws_subnet.public.id
 
@@ -107,6 +108,7 @@ resource "aws_instance" "control_plane" {
 resource "aws_instance" "worker" {
   ami           = data.aws_ami.ubuntu.id
   instance_type = "t3.medium"
+  key_name      = var.ec2_key_name
 
   subnet_id = aws_subnet.public.id
 
