@@ -1,0 +1,15 @@
+---
+- name: Verify connectivity to Kubernetes nodes
+  hosts: kubernetes
+  gather_facts: true
+
+  tasks:
+    - name: Display connected host details
+      ansible.builtin.debug:
+        msg: "Connected to {{ inventory_hostname }} at {{ ansible_host }}"
+
+    - name: Verify Ubuntu operating system
+      ansible.builtin.assert:
+        that:
+          - ansible_facts['distribution'] == "Ubuntu"
+        success_msg: "{{ inventory_hostname }} is running Ubuntu."
