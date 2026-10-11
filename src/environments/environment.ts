@@ -9,5 +9,5 @@ export const environment = {
     measurementId: 'G-DN1SPN73YL'
   },
   production: true,
-  ApiUrl:"http://localhost:3000/api/todos",
+  ApiUrl:"/api/todos",
 };

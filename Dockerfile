@@ -1,3 +1,4 @@
+
 # Stage 1: Build the Angular application
 FROM node:22-alpine AS build
 
@@ -12,8 +13,14 @@ RUN npm run build
 # Stage 2: Serve the production build with NGINX
 FROM nginx:alpine
 
+# Configure NGINX to serve Angular and proxy API requests
+ARG NGINX_CONF=nginx.conf
+COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
+
+# Copy the compiled Angular application
 COPY --from=build /app/dist/todo-app-ui/browser/ /usr/share/nginx/html/
 
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
+
