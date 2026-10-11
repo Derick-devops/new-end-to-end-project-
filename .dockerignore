@@ -1,7 +1,12 @@
-node_modules
-dist
+**/node_modules
+**/dist
+**/.angular
+**/coverage
 .git
+**/.git
 .gitignore
-.env
-.env.*
+**/.env
+**/.env.*
+**/*firebase-adminsdk*.json
+**/service-account*.json
 npm-debug.log*

@@ -1,26 +1,21 @@
-
-# Stage 1: Build the Angular application
+# Stage 1: Build the Angular frontend
 FROM node:22-alpine AS build
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY todo-app-ui/package*.json ./
 RUN npm ci
 
-COPY . .
+COPY todo-app-ui/ ./
 RUN npm run build
 
-# Stage 2: Serve the production build with NGINX
+# Stage 2: Serve the Angular application with NGINX
 FROM nginx:alpine
 
-# Configure NGINX to serve Angular and proxy API requests
-ARG NGINX_CONF=nginx.conf
-COPY ${NGINX_CONF} /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy the compiled Angular application
 COPY --from=build /app/dist/todo-app-ui/browser/ /usr/share/nginx/html/
 
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
-
