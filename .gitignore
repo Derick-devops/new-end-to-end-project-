@@ -12,3 +12,9 @@ terraform.tfvars
 
 # Logs
 *.log
+
+# Backend secrets and generated dependencies
+todo-app-backend/.env
+todo-app-backend/*firebase-adminsdk*.json
+todo-app-backend/node_modules/
+node_modules/

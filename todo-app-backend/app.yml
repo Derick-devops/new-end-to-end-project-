@@ -1,0 +1,8 @@
+runtime: nodejs18
+env: standard
+instance_class: F2
+entrypoint: npm start
+
+env_variables:
+  PORT: 8080
+  DATABASE_URI: mongodb+srv://develop:v4t5WdkqCxfBNVEK@dev.zl5jzpy.mongodb.net/todo-app

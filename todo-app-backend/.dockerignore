@@ -1,0 +1,7 @@
+node_modules
+.env
+.git
+.gitignore
+.DS_Store
+npm-debug.log*
+todo-app-309e2-firebase-adminsdk-fbsvc-658419b9d5.json
