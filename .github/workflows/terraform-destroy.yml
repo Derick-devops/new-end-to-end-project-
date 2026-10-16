@@ -1,11 +1,10 @@
-```yaml
 name: Terraform Destroy
 
-on:
+"on":
   workflow_dispatch:
     inputs:
       confirm_destroy:
-        description: 'Type DESTROY to delete all Terraform-managed resources'
+        description: "Type DESTROY to delete all Terraform-managed resources"
         required: true
         type: string
 
@@ -16,7 +15,7 @@ jobs:
   destroy:
     name: Terraform Destroy
     runs-on: ubuntu-latest
-    if: ${{ inputs.confirm_destroy == 'DESTROY' }}
+    if: ${{ github.event.inputs.confirm_destroy == 'DESTROY' }}
 
     defaults:
       run:
@@ -45,9 +44,11 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Review destroy plan
-        run: terraform plan -destroy
+      - name: Generate destroy plan
+        run: terraform plan -destroy -out=destroy.tfplan
 
-      - name: Terraform Destroy
-        run: terraform destroy -auto-approve
-```
+      - name: Display destroy plan
+        run: terraform show destroy.tfplan
+
+      - name: Destroy AWS resources
+        run: terraform apply -auto-approve destroy.tfplan
