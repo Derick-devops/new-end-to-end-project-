@@ -1,3 +1,4 @@
+
 name: Terraform Destroy
 
 "on":
@@ -44,7 +45,52 @@ jobs:
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Generate destroy plan
+      - name: Empty ECR repositories
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for repo in todo-app-backend todo-app-frontend; do
+            echo "Checking ECR repository: $repo"
+
+            if aws ecr describe-repositories \
+              --repository-names "$repo" >/dev/null 2>&1; then
+
+              while true; do
+                image_ids=$(aws ecr list-images \
+                  --repository-name "$repo" \
+                  --query 'imageIds[*]' \
+                  --output json)
+
+                if [ "$image_ids" = "[]" ]; then
+                  echo "$repo is empty."
+                  break
+                fi
+
+                batch=$(echo "$image_ids" | python3 -c \
+                  'import json,sys; print(json.dumps(json.load(sys.stdin)[:100]))')
+
+                result=$(aws ecr batch-delete-image \
+                  --repository-name "$repo" \
+                  --image-ids "$batch" \
+                  --output json)
+
+                echo "$result"
+
+                failures=$(echo "$result" | python3 -c \
+                  'import json,sys; print(len(json.load(sys.stdin).get("failures", [])))')
+
+                if [ "$failures" -gt 0 ]; then
+                  echo "ERROR: Some images in $repo could not be deleted."
+                  exit 1
+                fi
+              done
+            else
+              echo "$repo does not exist; skipping."
+            fi
+          done
+
+      - name: Generate fresh destroy plan
         run: terraform plan -destroy -out=destroy.tfplan
 
       - name: Display destroy plan
