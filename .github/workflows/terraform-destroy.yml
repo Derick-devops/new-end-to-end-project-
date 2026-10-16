@@ -51,42 +51,117 @@ jobs:
           set -euo pipefail
 
           for repo in todo-app-backend todo-app-frontend; do
-            echo "Checking ECR repository: $repo"
+            echo "======================================"
+            echo "Processing ECR repository: $repo"
+            echo "======================================"
 
-            if aws ecr describe-repositories \
+            if ! aws ecr describe-repositories \
               --repository-names "$repo" >/dev/null 2>&1; then
+              echo "Repository $repo does not exist; skipping."
+              continue
+            fi
 
-              while true; do
-                image_ids=$(aws ecr list-images \
+            emptied=false
+
+            for attempt in $(seq 1 30); do
+              echo "Attempt $attempt for $repo"
+
+              # Get image digests and media types.
+              aws ecr describe-images \
+                --repository-name "$repo" \
+                --output json > /tmp/ecr-images.json
+
+              # Delete manifest-list/index images first.
+              python3 - <<'PY' > /tmp/ecr-manifests.txt
+          import json
+          with open("/tmp/ecr-images.json") as f:
+              data = json.load(f)
+          for image in data.get("imageDetails", []):
+              media = image.get("imageManifestMediaType", "")
+              if media in (
+                  "application/vnd.docker.distribution.manifest.list.v2+json",
+                  "application/vnd.oci.image.index.v1+json",
+              ):
+                  digest = image.get("imageDigest")
+                  if digest:
+                      print(digest)
+          PY
+
+              while IFS= read -r digest; do
+                [ -z "$digest" ] && continue
+                echo "Deleting manifest list/index: $digest"
+
+                aws ecr batch-delete-image \
                   --repository-name "$repo" \
-                  --query 'imageIds[*]' \
-                  --output json)
+                  --image-ids "imageDigest=$digest" \
+                  --output json > /tmp/ecr-delete.json
 
-                if [ "$image_ids" = "[]" ]; then
-                  echo "$repo is empty."
-                  break
-                fi
+                python3 - <<'PY'
+          import json, sys
+          with open("/tmp/ecr-delete.json") as f:
+              data = json.load(f)
+          failures = data.get("failures", [])
+          if failures:
+              print(json.dumps(failures, indent=2))
+              sys.exit(1)
+          PY
+              done < /tmp/ecr-manifests.txt
 
-                batch=$(echo "$image_ids" | python3 -c \
-                  'import json,sys; print(json.dumps(json.load(sys.stdin)[:100]))')
+              # Delete remaining images in batches of at most 100.
+              aws ecr list-images \
+                --repository-name "$repo" \
+                --query 'imageIds[*].imageDigest' \
+                --output text > /tmp/ecr-digests.txt
 
-                result=$(aws ecr batch-delete-image \
+              python3 - <<'PY' > /tmp/ecr-batches.txt
+          import json
+          with open("/tmp/ecr-digests.txt") as f:
+              values = f.read().split()
+          for start in range(0, len(values), 100):
+              print(json.dumps([
+                  {"imageDigest": digest}
+                  for digest in values[start:start + 100]
+              ]))
+          PY
+
+              while IFS= read -r batch; do
+                [ -z "$batch" ] && continue
+
+                echo "Deleting image batch from $repo"
+
+                aws ecr batch-delete-image \
                   --repository-name "$repo" \
                   --image-ids "$batch" \
-                  --output json)
+                  --output json > /tmp/ecr-delete.json
 
-                echo "$result"
+                python3 - <<'PY'
+          import json
+          with open("/tmp/ecr-delete.json") as f:
+              data = json.load(f)
+          failures = data.get("failures", [])
+          for failure in failures:
+              print(json.dumps(failure))
+          PY
+              done < /tmp/ecr-batches.txt
 
-                failures=$(echo "$result" | python3 -c \
-                  'import json,sys; print(len(json.load(sys.stdin).get("failures", [])))')
+              remaining=$(aws ecr list-images \
+                --repository-name "$repo" \
+                --query 'length(imageIds)' \
+                --output text)
 
-                if [ "$failures" -gt 0 ]; then
-                  echo "ERROR: Some images in $repo could not be deleted."
-                  exit 1
-                fi
-              done
-            else
-              echo "$repo does not exist; skipping."
+              if [ "$remaining" = "0" ]; then
+                echo "Repository $repo is empty."
+                emptied=true
+                break
+              fi
+
+              echo "$remaining image entries remain; retrying."
+              sleep 2
+            done
+
+            if [ "$emptied" != "true" ]; then
+              echo "ERROR: Could not empty $repo after 30 attempts."
+              exit 1
             fi
           done
 
